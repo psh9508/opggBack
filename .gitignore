@@ -1,0 +1,9 @@
+﻿################################################################################
+# 이 .gitignore 파일은 Microsoft(R) Visual Studio에서 자동으로 만들어졌습니다.
+################################################################################
+
+/.vs
+/opggBack/bin/Debug/net6.0
+/opggBack/obj/Debug/net6.0/refint
+/opggBack/obj/Debug/net6.0
+/opggBack/obj/staticwebassets.pack.sentinel
