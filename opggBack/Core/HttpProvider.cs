@@ -1,4 +1,5 @@
 ﻿using NolowaBackendDotNet.Extensions;
+using opggBack.Models.Http;
 using System.Text.Json;
 
 namespace opggBack.Core
@@ -93,7 +94,7 @@ namespace opggBack.Core
             }
         }
 
-        public async Task<(bool IsSuccess, TResult Body)> PostAsync<TResult, TRequest>(string uri, TRequest body)
+        public async Task<(bool IsSuccess, TResult Body)> PostAsync<TResult, TRequest>(string uri, TRequest body) where TResult : HttpCommunicationModelBase, new()
         {
             return await DoPostBodyAsync<TResult>(async () =>
             {
@@ -103,19 +104,19 @@ namespace opggBack.Core
             });
         }
 
-        public async Task<(bool IsSuccess, TResult Body)> PostAsync<TResult, TRequest>(string uri, TRequest body, string contentType = "application/json")
-        {
-            if (contentType == "application/x-www-form-urlencoded")
-            {
-                return await PostWithURLEncoding<TResult, TRequest>(uri, body);
-            }
-            else
-            {
-                return await PostWithJsonEncoding<TResult, TRequest>(uri, body);
-            }
-        }
+        //public async Task<(bool IsSuccess, TResult Body)> PostAsync<TResult, TRequest>(string uri, TRequest body, string contentType = "application/json") where TResult : HttpCommunicationModelBase, new()
+        //{
+        //    if (contentType == "application/x-www-form-urlencoded")
+        //    {
+        //        return await PostWithURLEncoding<TResult, TRequest>(uri, body);
+        //    }
+        //    else
+        //    {
+        //        return await PostWithJsonEncoding<TResult, TRequest>(uri, body);
+        //    }
+        //}
 
-        private async Task<(bool IsSuccess, TResult Body)> PostWithJsonEncoding<TResult, TRequest>(string uri, TRequest body)
+        private async Task<(bool IsSuccess, TResult Body)> PostWithJsonEncoding<TResult, TRequest>(string uri, TRequest body) where TResult : HttpCommunicationModelBase, new()
         {
             return await DoPostBodyAsync<TResult>(async () =>
             {
@@ -125,7 +126,7 @@ namespace opggBack.Core
             });
         }
 
-        private async Task<(bool IsSuccess, TResult Body)> PostWithURLEncoding<TResult, TRequest>(string uri, TRequest body)
+        private async Task<(bool IsSuccess, TResult Body)> PostWithURLEncoding<TResult, TRequest>(string uri, TRequest body) where TResult : HttpCommunicationModelBase, new()
         {
             return await DoPostBodyAsync<TResult>(async () =>
             {
@@ -141,7 +142,7 @@ namespace opggBack.Core
             });
         }
 
-        private async Task<(bool IsSuccess, TResult Body)> DoPostBodyAsync<TResult>(Func<Task<HttpResponseMessage>> postAsync)
+        private async Task<(bool IsSuccess, TResult Body)> DoPostBodyAsync<TResult>(Func<Task<HttpResponseMessage>> postAsync) where TResult : HttpCommunicationModelBase, new()
         {
             try
             {
@@ -154,13 +155,14 @@ namespace opggBack.Core
 
                 return (true, await response.Content.ReadFromJsonAsync<TResult>());
             }
-            catch (NotSupportedException) // When content type is not valid
+            catch(Exception ex) when (ex is NotSupportedException  // When content type is not valid
+                                      || ex is JsonException       // Invalid JSON
+                                     )         
             {
-                return (false, default(TResult));
-            }
-            catch (JsonException ex) // Invalid JSON
-            {
-                return (false, default(TResult));
+                return (false, new TResult()
+                {
+                    Exception = ex,
+                });
             }
         }
     }
