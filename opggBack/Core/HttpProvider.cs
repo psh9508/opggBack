@@ -12,15 +12,16 @@ namespace opggBack.Core
         void AddHeader(string name, string value, bool isOverried = false);
     }
 
-    public interface IHttpProvider : IHttpHeader
+    public interface IHttpProvider<TResult, TRequest> : IHttpHeader where TResult : HttpCommunicationModelBase, new()
     {
-        Task<(bool IsSuccess, TResult Body)> PostAsync<TResult, TRequest>(string uri, TRequest body, string contentType = "application/json");
-        Task<(bool IsSuccess, TResult Body)> GetAsync<TResult>(string uri);
+        Task<(bool IsSuccess, TResult Body)> PostAsync(string uri, TRequest body, string contentType = "application/json");
+        Task<(bool IsSuccess, TResult Body)> GetAsync(string uri);
     }
 
-    public class HttpProvider : IHttpProvider
+    public class HttpProvider<TResult, TRequest> : IHttpProvider<TResult, TRequest> where TResult : HttpCommunicationModelBase, new()
     {
         protected static readonly HttpClient _httpClient = new HttpClient();
+
 
         public HttpProvider()
         {
@@ -78,25 +79,9 @@ namespace opggBack.Core
             }
         }
 
-        public async Task<(bool IsSuccess, TResult Body)> GetAsync<TResult>(string uri)
+        public async Task<(bool IsSuccess, TResult Body)> PostAsync(string uri, TRequest body)
         {
-            try
-            {
-                var result = await _httpClient.GetAsync(uri);
-
-                var debug = await result.Content.ReadAsStringAsync();
-
-                return (true, await result.Content.ReadFromJsonAsync<TResult>());
-            }
-            catch (Exception ex)
-            {
-                throw;
-            }
-        }
-
-        public async Task<(bool IsSuccess, TResult Body)> PostAsync<TResult, TRequest>(string uri, TRequest body) where TResult : HttpCommunicationModelBase, new()
-        {
-            return await DoPostBodyAsync<TResult>(async () =>
+            return await DoPostBodyAsync(async () =>
             {
                 var debugBody = JsonSerializer.Serialize(body);
 
@@ -104,21 +89,9 @@ namespace opggBack.Core
             });
         }
 
-        //public async Task<(bool IsSuccess, TResult Body)> PostAsync<TResult, TRequest>(string uri, TRequest body, string contentType = "application/json") where TResult : HttpCommunicationModelBase, new()
-        //{
-        //    if (contentType == "application/x-www-form-urlencoded")
-        //    {
-        //        return await PostWithURLEncoding<TResult, TRequest>(uri, body);
-        //    }
-        //    else
-        //    {
-        //        return await PostWithJsonEncoding<TResult, TRequest>(uri, body);
-        //    }
-        //}
-
-        private async Task<(bool IsSuccess, TResult Body)> PostWithJsonEncoding<TResult, TRequest>(string uri, TRequest body) where TResult : HttpCommunicationModelBase, new()
+        private async Task<(bool IsSuccess, TResult Body)> PostWithJsonEncoding(string uri, TRequest body) 
         {
-            return await DoPostBodyAsync<TResult>(async () =>
+            return await DoPostBodyAsync(async () =>
             {
                 var debug = JsonSerializer.Serialize(body);
 
@@ -126,9 +99,9 @@ namespace opggBack.Core
             });
         }
 
-        private async Task<(bool IsSuccess, TResult Body)> PostWithURLEncoding<TResult, TRequest>(string uri, TRequest body) where TResult : HttpCommunicationModelBase, new()
+        private async Task<(bool IsSuccess, TResult Body)> PostWithURLEncoding(string uri, TRequest body)
         {
-            return await DoPostBodyAsync<TResult>(async () =>
+            return await DoPostBodyAsync(async () =>
             {
                 var values = body.ToDictionary();
 
@@ -142,7 +115,7 @@ namespace opggBack.Core
             });
         }
 
-        private async Task<(bool IsSuccess, TResult Body)> DoPostBodyAsync<TResult>(Func<Task<HttpResponseMessage>> postAsync) where TResult : HttpCommunicationModelBase, new()
+        private async Task<(bool IsSuccess, TResult Body)> DoPostBodyAsync(Func<Task<HttpResponseMessage>> postAsync)
         {
             try
             {
@@ -159,10 +132,39 @@ namespace opggBack.Core
                                       || ex is JsonException       // Invalid JSON
                                      )         
             {
+                //return (false, default(TResult));
                 return (false, new TResult()
                 {
                     Exception = ex,
                 });
+            }
+        }
+
+        public async Task<(bool IsSuccess, TResult Body)> GetAsync(string uri)
+        {
+            try
+            {
+                var result = await _httpClient.GetAsync(uri);
+
+                var debug = await result.Content.ReadAsStringAsync();
+
+                return (true, await result.Content.ReadFromJsonAsync<TResult>());
+            }
+            catch (Exception ex)
+            {
+                throw;
+            }
+        }
+
+        public async Task<ValueTuple<bool, TResult>> PostAsync(string uri, TRequest body, string contentType = "application/json")
+        {
+            if (contentType == "application/x-www-form-urlencoded")
+            {
+                return await PostWithURLEncoding(uri, body);
+            }
+            else
+            {
+                return await PostWithJsonEncoding(uri, body);
             }
         }
     }
